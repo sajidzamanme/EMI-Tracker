@@ -19,11 +19,20 @@ INSERT INTO users(name, email, pass, totalLoaned, totalPaid) VALUES(
 );
 
 -- @block
+UPDATE users
+SET name = "up",
+  email = "up@mail.com",
+  pass = "upupup"
+WHERE userID = 2;
+
+-- @block
 DELETE FROM users WHERE userID = 1;
 
 -- @block
 SELECT * FROM users;
 
+-- @block
+SELECT * FROM users WHERE userID = 3
 
---@block
+-- @block
 DROP TABLE users;
