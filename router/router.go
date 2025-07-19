@@ -16,7 +16,7 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("PUT /users/{userID}", handlers.PutUser)
 	mux.HandleFunc("DELETE /users/{userID}", handlers.DeleteUser)
 	mux.HandleFunc("GET /users/{userID}/subscriptions", handlers.GetAllSubsByUserID)
-	
+
 	// Subscription Handlers
 	mux.HandleFunc("GET /subscriptions/{subID}", handlers.GetSubByID)
 	mux.HandleFunc("POST /subscriptions/{userID}", handlers.PostSubByUserID)

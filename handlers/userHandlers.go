@@ -11,7 +11,7 @@ import (
 	"github.com/sajidzamanme/emi-tracker/models"
 )
 
-// DONE (convert to json maybe)
+// DONE
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.DB.Query("SELECT * FROM users")
 	if err != nil {
@@ -19,14 +19,17 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	var users []models.User
 	for rows.Next() {
 		var u models.User
 		rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid)
-		fmt.Fprintf(w, "User %s (ID: %v) has total loan %v, of which he paid %v. Remaining amount: %v\n", u.Name, u.UserID, u.TotalLoaned, u.TotalPaid, u.TotalLoaned-u.TotalPaid)
+		users = append(users, u)
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
 }
 
-// DONE (JSON?)
+// DONE
 func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -42,15 +45,15 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// check if found
-	rows.Next()
+	if !rows.Next() {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
 	var u models.User
 	rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid)
 
-	fmt.Fprintf(w, "User details of ID %v:\n", userID)
-	fmt.Fprintf(w,
-		"Name: %s\nEmail: %s\nTotal Loan: %v\nTotal Paid: %v\nRemaining Amount: %v",
-		u.Name, u.Email, u.TotalLoaned, u.TotalPaid, u.TotalLoaned-u.TotalPaid)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(u)
 }
 
 // DONE
@@ -140,4 +143,29 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, "User Deleted with ID:", userID)
+}
+
+// DONE (DATE ERROR)
+func GetAllSubsByUserID(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.Atoi(r.PathValue("userID"))
+	if err != nil {
+		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
+	}
+
+	query := `SELECT * FROM subscriptions WHERE ownerID = ?;`
+
+	rows, err := database.DB.Query(query, userID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var subs []models.Subscription
+	for rows.Next() {
+		var s models.Subscription
+		rows.Scan(&s.SubID, &s.OwnerID, &s.SubName, &s.TotalAmount,
+			&s.PaidAmount, &s.PaymentAmount, &s.StartDate, &s.EndDate, &s.DeductDay)
+		subs = append(subs, s)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(subs)
 }
