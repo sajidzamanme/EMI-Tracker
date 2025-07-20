@@ -102,4 +102,5 @@ FROM subscriptions INNER JOIN users ON userID = ownerID
 WHERE ownerID = 9;
 
 -- @block
-SELECT * FROM subscriptions WHERE subID = 2;
+SELECT * FROM subscriptions WHERE subID = 3
+

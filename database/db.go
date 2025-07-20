@@ -11,7 +11,7 @@ var DB *sql.DB
 
 func InitDB() {
 	// move to .env
-	dsn := "root:sajid123@tcp(127.0.0.1:3306)/emiTracker"
+	dsn := "root:sajid123@tcp(127.0.0.1:3306)/emiTracker?parseTime=true"
 
 	var err error
 	DB, err = sql.Open("mysql", dsn)

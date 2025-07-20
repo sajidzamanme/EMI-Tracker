@@ -16,6 +16,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.DB.Query("SELECT * FROM users")
 	if err != nil {
 		log.Fatalln(err)
+		return
 	}
 	defer rows.Close()
 
@@ -145,11 +146,12 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "User Deleted with ID:", userID)
 }
 
-// DONE (DATE ERROR)
+// DONE
 func GetAllSubsByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
+		return
 	}
 
 	query := `SELECT * FROM subscriptions WHERE ownerID = ?;`
@@ -158,6 +160,7 @@ func GetAllSubsByUserID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer rows.Close()
 
 	var subs []models.Subscription
 	for rows.Next() {
