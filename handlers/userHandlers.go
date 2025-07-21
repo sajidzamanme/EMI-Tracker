@@ -9,6 +9,7 @@ import (
 
 	"github.com/sajidzamanme/emi-tracker/database"
 	"github.com/sajidzamanme/emi-tracker/models"
+	"github.com/sajidzamanme/emi-tracker/utils"
 )
 
 // DONE
@@ -49,14 +50,10 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM users WHERE userID = ?`
-
-	rows := database.DB.QueryRow(query, userID)
 	var u models.User
-	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
+	err = utils.FindUserByUserID(userID, &u)
 	if err != nil {
-		log.Printf("Error scanning user: %v", err)
-		return
+		log.Printf("Error scanning users row: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -73,16 +70,23 @@ func PostUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	var err error
+	u.Password, err = utils.HashPassword(u.Password)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Printf("Password hashing failed. Error: %v", err)
+		return
+	}
+
 	u.TotalLoaned = 0
 	u.TotalPaid = 0
 	u.CurrentlyLoaned = 0
 	u.CurrentlyPaid = 0
 	u.CompletedEMI = 0
 
-	query := `INSERT INTO users(
-		name, email, password, totalLoaned, totalPaid, currentlyLoaned, currentlyPaid, completedEMI
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO
+						users(name, email, password, totalLoaned, totalPaid, currentlyLoaned, currentlyPaid, completedEMI)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.CurrentlyLoaned, u.CurrentlyPaid, u.CompletedEMI)
 	if err != nil {
@@ -109,14 +113,10 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM users WHERE userID = ?`
-
-	rows := database.DB.QueryRow(query, userID)
 	var u models.User
-	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
+	err = utils.FindUserByUserID(userID, &u)
 	if err != nil {
-		log.Printf("Error scanning user: %v", err)
-		return
+		log.Printf("Error scanning users row: %v", err)
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&u); err != nil {
@@ -125,15 +125,15 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	query = `UPDATE users
+	query := `UPDATE users
 						SET name = ?,
-  					email = ?,
-  					password = ?,
-						totalLoaned = ?,
-						totalPaid = ?,
-						currentlyLoaned = ?,
-						currentlyPaid = ?,
-						completedEMI = ?,
+								email = ?,
+								password = ?,
+								totalLoaned = ?,
+								totalPaid = ?,
+								currentlyLoaned = ?,
+								currentlyPaid = ?,
+								completedEMI = ?,
 						WHERE userID = ?;`
 
 	_, err = database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/sajidzamanme/emi-tracker/database"
 	"github.com/sajidzamanme/emi-tracker/models"
+	"github.com/sajidzamanme/emi-tracker/utils"
 )
 
 // DONE
@@ -19,12 +20,8 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
-
-	rows := database.DB.QueryRow(query, recordID)
 	var er models.EMIRecord
-	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
-		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
@@ -51,8 +48,8 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	query := `INSERT INTO
-	emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
+						emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
+						VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
 
 	_, err = database.DB.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
 	if err != nil {
@@ -86,12 +83,8 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM emiRecords WHERE recordID = ?`
-
-	rows := database.DB.QueryRow(query, recordID)
 	var er models.EMIRecord
-	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
-		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
@@ -108,16 +101,16 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	query = `UPDATE emiRecords
-	SET ownerID = ?,
-			title = ?,
-			totalAmount = ?,
-			paidAmount = ?,
-			installmentAmount = ?,
-			startDate = ?,
-			endDate = ?,
-			deductDay = ?
-	WHERE recordID = ?`
+	query := `UPDATE emiRecords
+						SET ownerID = ?,
+								title = ?,
+								totalAmount = ?,
+								paidAmount = ?,
+								installmentAmount = ?,
+								startDate = ?,
+								endDate = ?,
+								deductDay = ?
+						WHERE recordID = ?`
 
 	_, err = database.DB.Exec(query, er.OwnerID, er.Title, er.TotalAmount, er.PaidAmount,
 		er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay, recordID)
@@ -153,23 +146,19 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
-
-	rows := database.DB.QueryRow(query, recordID)
 	var er models.EMIRecord
-	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
-		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
 
-	query = `UPDATE users
-					SET totalLoaned = totalLoaned - ?,
-							totalPaid = totalPaid - ?,
-							currentlyLoaned = currentlyLoaned - ?,
-							currentlyPaid = currentlyPaid - ?,
-					WHERE userID = ?`
+	query := `UPDATE users
+						SET totalLoaned = totalLoaned - ?,
+								totalPaid = totalPaid - ?,
+								currentlyLoaned = currentlyLoaned - ?,
+								currentlyPaid = currentlyPaid - ?,
+						WHERE userID = ?`
 
 	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, er.OwnerID)
 	if err != nil {
@@ -196,11 +185,8 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT * FROM emiRecords WHERE recordID = ?`
 	var er models.EMIRecord
-	rows := database.DB.QueryRow(query, recordID)
-	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
-		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
@@ -218,10 +204,9 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		er.PaidAmount = er.TotalAmount
 	}
 
-	// update record
-	query = `UPDATE emiRecords
-					SET paidAmount = ?
-					WHERE recordID = ?`
+	query := `UPDATE emiRecords
+						SET paidAmount = ?
+						WHERE recordID = ?`
 
 	_, err = database.DB.Exec(query, er.PaidAmount, recordID)
 	if err != nil {
@@ -230,11 +215,10 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// update users currentlyPaid and totalPaid
 	query = `UPDATE users
-	SET totalPaid = totalPaid + ?,
-	currentlyPaid = currentlyPaid + ?
-	WHERE userID = ?`
+					SET totalPaid = totalPaid + ?,
+							currentlyPaid = currentlyPaid + ?
+					WHERE userID = ?`
 
 	_, err = database.DB.Exec(query, er.InstallmentAmount-extra, er.InstallmentAmount-extra, er.OwnerID)
 	if err != nil {
@@ -242,7 +226,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Database error: %v\n", err)
 		return
 	}
-	// check if emi is fully paid. if paid then update completed emi, remove record money from current.
+
 	if er.TotalAmount == er.PaidAmount {
 		query = `UPDATE users
 						SET currentlyLoaned = currentlyLoaned - ?,
@@ -257,7 +241,6 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// dont delete, it stays as completed history
 
 	fmt.Fprintln(w, "Installment paid of ID:", recordID)
 }
