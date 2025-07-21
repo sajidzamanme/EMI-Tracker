@@ -12,28 +12,28 @@ import (
 )
 
 // DONE
-func GetSubByID(w http.ResponseWriter, r *http.Request) {
-	subID, err := strconv.Atoi(r.PathValue("subID"))
+func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	query := `SELECT * FROM subscriptions WHERE subID = ?;`
+	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
 
-	rows, err := database.DB.Query(query, subID)
+	rows, err := database.DB.Query(query, recordID)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		http.Error(w, "Subscription not found", http.StatusNotFound)
+		http.Error(w, "EMI record not found", http.StatusNotFound)
 		return
 	}
-	var s models.Subscription
-	err = rows.Scan(&s.SubID, &s.OwnerID, &s.SubName, &s.TotalAmount,
-		&s.PaidAmount, &s.PaymentAmount, &s.StartDate, &s.EndDate, &s.DeductDay)
+	var er models.EMIRecord
+	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
+		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
 
 	if err != nil {
 		log.Println("Scan error:", err)
@@ -42,46 +42,46 @@ func GetSubByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s)
+	json.NewEncoder(w).Encode(er)
 }
 
 // DONE
-func PostSubByUserID(w http.ResponseWriter, r *http.Request) {
+func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	var s models.Subscription
-	err = json.NewDecoder(r.Body).Decode(&s)
+	var er models.EMIRecord
+	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	query := `INSERT INTO
-	subscriptions (ownerID, subName, totalAmount, paidAmount, paymentAmount, startDate, endDate, deductDay)
+	emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
 
-	_, err = database.DB.Exec(query, userID, s.SubName, s.TotalAmount, s.PaidAmount, s.PaymentAmount, s.StartDate, s.EndDate, s.DeductDay)
+	_, err = database.DB.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Fprintln(w, "Subscription Added to ID:", userID)
+	fmt.Fprintln(w, "EMI Record Added to ID:", userID)
 }
 
-func PutSubBySubID(w http.ResponseWriter, r *http.Request) {
-	subID, err := strconv.Atoi(r.PathValue("subID"))
+func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	query := `SELECT * FROM subscriptions WHERE subID = ?`
+	query := `SELECT * FROM emiRecords WHERE recordID = ?`
 
-	rows, err := database.DB.Query(query, subID)
+	rows, err := database.DB.Query(query, recordID)
 	if err != nil {
 		log.Fatalln(err)
 		return
@@ -91,51 +91,51 @@ func PutSubBySubID(w http.ResponseWriter, r *http.Request) {
 	if !rows.Next() {
 		log.Fatalln(err)
 	}
-	var s models.Subscription
+	var er models.EMIRecord
 
-	rows.Scan(&s.SubID, &s.OwnerID, &s.SubName, &s.TotalAmount, &s.PaidAmount, &s.PaymentAmount, &s.StartDate, &s.EndDate, &s.DeductDay)
+	rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount, &er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
 
-	err = json.NewDecoder(r.Body).Decode(&s)
+	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	query = `UPDATE subscriptions
+	query = `UPDATE emiRecords
 	SET ownerID = ?,
-			subName = ?,
+			title = ?,
 			totalAmount = ?,
 			paidAmount = ?,
-			paymentAmount = ?,
+			installmentAmount = ?,
 			startDate = ?,
 			endDate = ?,
 			deductDay = ?
-	WHERE subID = ?`
+	WHERE recordID = ?`
 
-	_, err = database.DB.Exec(query, s.OwnerID, s.SubName, s.TotalAmount, s.PaidAmount,
-		s.PaymentAmount, s.StartDate, s.EndDate, s.DeductDay, subID)
+	_, err = database.DB.Exec(query, er.OwnerID, er.Title, er.TotalAmount, er.PaidAmount,
+		er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay, recordID)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Fatalln(err)
 	}
 
-	fmt.Fprintln(w, "Subscription Updated of ID:", subID)
+	fmt.Fprintln(w, "EMI Record Updated of ID:", recordID)
 }
 
-func DeleteSubBySubID(w http.ResponseWriter, r *http.Request) {
-	subID, err := strconv.Atoi(r.PathValue("subID"))
+func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	query := `DELETE FROM subscriptions WHERE subID = ?`
+	query := `DELETE FROM emiRecords WHERE recordID = ?`
 
-	_, err = database.DB.Exec(query, subID)
+	_, err = database.DB.Exec(query, recordID)
 	if err != nil {
 		log.Println("Database error:", err)
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Fprintf(w, "Subscription deleted with ID: %d\n", subID)
+	fmt.Fprintf(w, "EMI Record deleted with ID: %d\n", recordID)
 }

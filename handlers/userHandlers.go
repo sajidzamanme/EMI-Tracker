@@ -147,14 +147,14 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // DONE
-func GetAllSubsByUserID(w http.ResponseWriter, r *http.Request) {
+func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		fmt.Fprintln(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	query := `SELECT * FROM subscriptions WHERE ownerID = ?;`
+	query := `SELECT * FROM emiRecords WHERE ownerID = ?;`
 
 	rows, err := database.DB.Query(query, userID)
 	if err != nil {
@@ -162,13 +162,13 @@ func GetAllSubsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var subs []models.Subscription
+	var records []models.EMIRecord
 	for rows.Next() {
-		var s models.Subscription
-		rows.Scan(&s.SubID, &s.OwnerID, &s.SubName, &s.TotalAmount,
-			&s.PaidAmount, &s.PaymentAmount, &s.StartDate, &s.EndDate, &s.DeductDay)
-		subs = append(subs, s)
+		var er models.EMIRecord
+		rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
+			&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+		records = append(records, er)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(subs)
+	json.NewEncoder(w).Encode(records)
 }

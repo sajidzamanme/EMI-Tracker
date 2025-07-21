@@ -15,13 +15,13 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("POST /users", handlers.PostUser)
 	mux.HandleFunc("PUT /users/{userID}", handlers.PutUser)
 	mux.HandleFunc("DELETE /users/{userID}", handlers.DeleteUser)
-	mux.HandleFunc("GET /users/{userID}/subscriptions", handlers.GetAllSubsByUserID)
+	mux.HandleFunc("GET /users/{userID}/emirecords", handlers.GetAllRecordsByUserID)
 
-	// Subscription Handlers
-	mux.HandleFunc("GET /subscriptions/{subID}", handlers.GetSubByID)
-	mux.HandleFunc("POST /subscriptions/{userID}", handlers.PostSubByUserID)
-	mux.HandleFunc("PUT /subscriptions/{subID}", handlers.PutSubBySubID)
-	mux.HandleFunc("DELETE /subscriptions/{subID}", handlers.DeleteSubBySubID)
+	// EMIRecord Handlers
+	mux.HandleFunc("GET /emirecords/{recordID}", handlers.GetRecordByRecordID)
+	mux.HandleFunc("POST /emirecords/{userID}", handlers.PostRecordByUserID)
+	mux.HandleFunc("PUT /emirecords/{recordID}", handlers.PutRecordByRecordID)
+	mux.HandleFunc("DELETE /emirecords/{recordID}", handlers.DeleteRecordByRecordID)
 
 	return mux
 }
