@@ -62,10 +62,13 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query = `UPDATE users
-					SET totalLoaned = totalLoaned + ?, totalPaid = totalPaid + ?
+					SET totalLoaned = totalLoaned + ?,
+							totalPaid = totalPaid + ?,
+							currentlyLoaned = currentlyLoaned + ?,
+							currentlyPaid = currentlyPaid + ?
 					WHERE userID = ?`
 
-	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, userID)
+	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, userID)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v\n", err)
@@ -125,10 +128,14 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query = `UPDATE users
-	SET totalLoaned = totalLoaned + ?, totalPaid = totalPaid + ?
-	WHERE userID = ?`
+					SET totalLoaned = totalLoaned + ?,
+							totalPaid = totalPaid + ?,
+							currentlyLoaned = currentlyLoaned + ?,
+							currentlyPaid = currentlyPaid + ?,
+					WHERE userID = ?`
 
-	_, err = database.DB.Exec(query, er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount, er.OwnerID)
+	_, err = database.DB.Exec(query, er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount,
+		er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount, er.OwnerID)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v\n", err)
@@ -158,10 +165,13 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query = `UPDATE users
-					SET totalLoaned = totalLoaned - ?, totalPaid = totalPaid - ?
+					SET totalLoaned = totalLoaned - ?,
+							totalPaid = totalPaid - ?,
+							currentlyLoaned = currentlyLoaned - ?,
+							currentlyPaid = currentlyPaid - ?,
 					WHERE userID = ?`
 
-	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.OwnerID)
+	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, er.OwnerID)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v\n", err)
@@ -177,4 +187,77 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "EMI Record deleted with ID: %d\n", recordID)
+}
+
+func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
+	recordID, err := strconv.Atoi(r.PathValue("recordID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	query := `SELECT * FROM emiRecords WHERE recordID = ?`
+	var er models.EMIRecord
+	rows := database.DB.QueryRow(query, recordID)
+	err = rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
+		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+	if err != nil {
+		log.Printf("Error scanning emiRecords row: %v", err)
+		return
+	}
+
+	if er.PaidAmount == er.TotalAmount {
+		http.Error(w, "EMI Already Paid", http.StatusNotAcceptable)
+		return
+	}
+
+	er.PaidAmount += er.InstallmentAmount
+	extra := 0
+	if er.PaidAmount > er.TotalAmount {
+		extra = er.PaidAmount - er.TotalAmount
+		er.PaidAmount = er.TotalAmount
+	}
+
+	// update record
+	query = `UPDATE emiRecords
+					SET paidAmount = ?
+					WHERE recordID = ?`
+
+	_, err = database.DB.Exec(query, er.PaidAmount, recordID)
+	if err != nil {
+		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		log.Printf("Database error: %v\n", err)
+		return
+	}
+
+	// update users currentlyPaid and totalPaid
+	query = `UPDATE users
+	SET totalPaid = totalPaid + ?,
+	currentlyPaid = currentlyPaid + ?
+	WHERE userID = ?`
+
+	_, err = database.DB.Exec(query, er.InstallmentAmount-extra, er.InstallmentAmount-extra, er.OwnerID)
+	if err != nil {
+		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		log.Printf("Database error: %v\n", err)
+		return
+	}
+	// check if emi is fully paid. if paid then update completed emi, remove record money from current.
+	if er.TotalAmount == er.PaidAmount {
+		query = `UPDATE users
+						SET currentlyLoaned = currentlyLoaned - ?,
+								currentlyPaid = currentlyPaid - ?,
+								completedEMI = completedEMI + 1
+						WHERE userID = ?`
+
+		_, err = database.DB.Exec(query, er.TotalAmount, er.TotalAmount, er.OwnerID)
+		if err != nil {
+			http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+			log.Printf("Database error: %v\n", err)
+			return
+		}
+	}
+	// dont delete, it stays as completed history
+
+	fmt.Fprintln(w, "Installment paid of ID:", recordID)
 }

@@ -24,7 +24,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid)
+		err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
 		if err != nil {
 			log.Printf("Error scanning user: %v", err)
 			return
@@ -33,8 +33,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(users) == 0 {
-		w.WriteHeader(http.StatusNoContent)
-		fmt.Println("No users found")
+		http.Error(w, "No Users Found", http.StatusNoContent)
 		return
 	}
 
@@ -54,7 +53,7 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	rows := database.DB.QueryRow(query, userID)
 	var u models.User
-	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid)
+	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
 	if err != nil {
 		log.Printf("Error scanning user: %v", err)
 		return
@@ -76,13 +75,16 @@ func PostUser(w http.ResponseWriter, r *http.Request) {
 
 	u.TotalLoaned = 0
 	u.TotalPaid = 0
+	u.CurrentlyLoaned = 0
+	u.CurrentlyPaid = 0
+	u.CompletedEMI = 0
 
 	query := `INSERT INTO users(
-		name, email, pass, totalLoaned, totalPaid
+		name, email, password, totalLoaned, totalPaid, currentlyLoaned, currentlyPaid, completedEMI
 		)
-		VALUES (?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
-	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid)
+	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.CurrentlyLoaned, u.CurrentlyPaid, u.CompletedEMI)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v\n", err)
@@ -111,7 +113,7 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 
 	rows := database.DB.QueryRow(query, userID)
 	var u models.User
-	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid)
+	err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
 	if err != nil {
 		log.Printf("Error scanning user: %v", err)
 		return
@@ -126,12 +128,17 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 	query = `UPDATE users
 						SET name = ?,
   					email = ?,
-  					pass = ?,
+  					password = ?,
 						totalLoaned = ?,
-						totalPaid = ?
+						totalPaid = ?,
+						currentlyLoaned = ?,
+						currentlyPaid = ?,
+						completedEMI = ?,
 						WHERE userID = ?;`
 
-	if _, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, userID); err != nil {
+	_, err = database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned,
+		u.TotalPaid, u.CurrentlyLoaned, u.CurrentlyPaid, u.CompletedEMI, userID)
+	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v", err)
 		return
@@ -191,7 +198,7 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 
 	if len(records) == 0 {
 		w.WriteHeader(http.StatusNoContent)
-		fmt.Println("No records found")
+		fmt.Fprintln(w, "No records found")
 		return
 	}
 

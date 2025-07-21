@@ -22,6 +22,7 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("POST /emirecords/{userID}", handlers.PostRecordByUserID)
 	mux.HandleFunc("PUT /emirecords/{recordID}", handlers.PutRecordByRecordID)
 	mux.HandleFunc("DELETE /emirecords/{recordID}", handlers.DeleteRecordByRecordID)
+	mux.HandleFunc("GET /emirecords/{recordID}/payinstallment", handlers.GetPayInstallment)
 
 	return mux
 }
