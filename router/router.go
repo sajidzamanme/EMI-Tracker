@@ -25,3 +25,6 @@ func NewMux() *http.ServeMux {
 
 	return mux
 }
+
+// complete emi option
+// pay installment option

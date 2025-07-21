@@ -66,6 +66,9 @@ func PostUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u.TotalLoaned = 0
+	u.TotalPaid = 0
+
 	query := `INSERT INTO users(
 		name, email, pass, totalLoaned, totalPaid
 		)

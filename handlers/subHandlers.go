@@ -69,9 +69,20 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	query = `UPDATE users
+					SET totalLoaned = totalLoaned + ?, totalPaid = totalPaid + ?
+					WHERE userID = ?`
+
+	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, userID)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
 	fmt.Fprintln(w, "EMI Record Added to ID:", userID)
 }
 
+// DONE
 func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -93,8 +104,13 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 	var er models.EMIRecord
 
+	// previous data from db
 	rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount, &er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
 
+	prevTotalAmount := er.TotalAmount
+	prevPaidAmount := er.PaidAmount
+
+	// new data from request
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
 		log.Fatalln(err)
@@ -118,9 +134,20 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		log.Fatalln(err)
 	}
 
+	query = `UPDATE users
+	SET totalLoaned = totalLoaned + ?, totalPaid = totalPaid + ?
+	WHERE userID = ?`
+
+	_, err = database.DB.Exec(query, er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount, er.OwnerID)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	fmt.Fprintln(w, "EMI Record Updated of ID:", recordID)
 }
 
+// DONE
 func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -128,7 +155,34 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `DELETE FROM emiRecords WHERE recordID = ?`
+	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
+
+	rows, err := database.DB.Query(query, recordID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		http.Error(w, "EMI record not found", http.StatusNotFound)
+		return
+	}
+	var er models.EMIRecord
+	rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
+		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
+
+	query = `UPDATE users
+					SET totalLoaned = totalLoaned - ?, totalPaid = totalPaid - ?
+					WHERE userID = ?`
+
+	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.OwnerID)
+	if err != nil {
+		log.Println("Database error:", err)
+		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	query = `DELETE FROM emiRecords WHERE recordID = ?`
 
 	_, err = database.DB.Exec(query, recordID)
 	if err != nil {
