@@ -16,6 +16,6 @@ func main() {
 
 	err := http.ListenAndServe(":8080", router.NewMux())
 	if err != nil {
-		log.Println("Server Crashed")
+		log.Fatalln("Server Crashed")
 	}
 }
