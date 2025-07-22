@@ -13,12 +13,14 @@ func InitDB() {
 	// move to .env
 	dsn := "root:sajid123@tcp(127.0.0.1:3306)/emiTracker?parseTime=true"
 
+	// Configure database connection
 	var err error
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalln("sql.Open error:", err)
 	}
 
+	// Establish database connection
 	if err := DB.Ping(); err != nil {
 		log.Fatalln("Database not reachable:", err)
 	}

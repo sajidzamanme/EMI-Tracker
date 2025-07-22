@@ -6,6 +6,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Find user from databse and set to sent pointer
 func FindUserByUserID(userID int, u *models.User) error {
 	query := `SELECT * FROM users WHERE userID = ?`
 
@@ -18,6 +19,7 @@ func FindUserByUserID(userID int, u *models.User) error {
 	return nil
 }
 
+// Find record from databse and set to sent pointer
 func FindRecordByRecordID(recordID int, er *models.EMIRecord) error {
 	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
 
@@ -31,6 +33,7 @@ func FindRecordByRecordID(recordID int, er *models.EMIRecord) error {
 	return nil
 }
 
+// Bcrypt password hashing
 func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hashedPassword), err

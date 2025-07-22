@@ -12,8 +12,9 @@ import (
 	"github.com/sajidzamanme/emi-tracker/utils"
 )
 
-// DONE
+// JSON Response with all Users
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
+	// Select all users from database
 	rows, err := database.DB.Query("SELECT * FROM users")
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
@@ -22,6 +23,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	// save queried users in users slice
 	var users []models.User
 	for rows.Next() {
 		var u models.User
@@ -42,7 +44,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// DONE
+// JSON Response with User (through userID)
 func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -60,16 +62,17 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(u)
 }
 
-// DONE
+// Add User to Database
 func PostUser(w http.ResponseWriter, r *http.Request) {
+	// Save User from request body to u
 	var u models.User
-
 	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
 		http.Error(w, "Invalid User Details", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
+	// Hash the password
 	var err error
 	u.Password, err = utils.HashPassword(u.Password)
 	if err != nil {
@@ -78,12 +81,14 @@ func PostUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set default values
 	u.TotalLoaned = 0
 	u.TotalPaid = 0
 	u.CurrentlyLoaned = 0
 	u.CurrentlyPaid = 0
 	u.CompletedEMI = 0
 
+	// Insert user to database
 	query := `INSERT INTO
 						users(name, email, password, totalLoaned, totalPaid, currentlyLoaned, currentlyPaid, completedEMI)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -95,17 +100,18 @@ func PostUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get id of new user
 	id, err := res.LastInsertId()
 	if err != nil {
 		http.Error(w, "Internal Server Error:", http.StatusInternalServerError)
-		log.Printf("Server Error: %v", err)
+		log.Printf("Server Error: %v\n", err)
 		return
 	}
 
 	fmt.Fprintln(w, "User Added. ID:", int(id))
 }
 
-// DONE
+// Update User in Database
 func PutUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -119,12 +125,14 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error scanning users row: %v", err)
 	}
 
+	// Overwrite the new info
 	if err = json.NewDecoder(r.Body).Decode(&u); err != nil {
 		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
+	// Update entry in database
 	query := `UPDATE users
 						SET name = ?,
 								email = ?,
@@ -133,7 +141,7 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 								totalPaid = ?,
 								currentlyLoaned = ?,
 								currentlyPaid = ?,
-								completedEMI = ?,
+								completedEMI = ?
 						WHERE userID = ?;`
 
 	_, err = database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned,
@@ -147,7 +155,7 @@ func PutUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "User Updated with ID:", userID)
 }
 
-// DONE
+// Delete User from Database
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -155,6 +163,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delete user from database
 	query := `DELETE FROM users WHERE userID = ?;`
 
 	if _, err := database.DB.Exec(query, userID); err != nil {
@@ -166,7 +175,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "User Deleted with ID:", userID)
 }
 
-// DONE
+// JSON Response with all EMIRecords added to an individual User
 func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -174,8 +183,8 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get all EMIRecords of the requested user
 	query := `SELECT * FROM emiRecords WHERE ownerID = ?;`
-
 	rows, err := database.DB.Query(query, userID)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
@@ -184,6 +193,7 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	// Save the EMIRecords in records slice
 	var records []models.EMIRecord
 	for rows.Next() {
 		var er models.EMIRecord
@@ -197,7 +207,7 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(records) == 0 {
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintln(w, "No records found")
 		return
 	}
