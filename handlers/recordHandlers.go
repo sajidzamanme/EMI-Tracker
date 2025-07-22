@@ -12,7 +12,7 @@ import (
 	"github.com/sajidzamanme/emi-tracker/utils"
 )
 
-// DONE
+// JSON Response with Record Details
 func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -23,6 +23,7 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
@@ -31,7 +32,7 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(er)
 }
 
-// DONE
+// Add EMIRecord to Database
 func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
@@ -39,6 +40,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Save EMIRecord from request body to er
 	var er models.EMIRecord
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
@@ -47,6 +49,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// Add New EMIRecord to Database
 	query := `INSERT INTO
 						emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
 						VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
@@ -58,6 +61,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as new EMIRecord is added
 	query = `UPDATE users
 					SET totalLoaned = totalLoaned + ?,
 							totalPaid = totalPaid + ?,
@@ -75,7 +79,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "EMI Record Added to ID:", userID)
 }
 
-// DONE
+// Update EMIRecord in Database
 func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -86,14 +90,16 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
 
+	// Save previous amount to calculate change later
 	prevTotalAmount := er.TotalAmount
 	prevPaidAmount := er.PaidAmount
 
-	// new data from request
+	// Save the new information in er
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
 		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
@@ -101,6 +107,7 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// Save the updated er in Database
 	query := `UPDATE emiRecords
 						SET ownerID = ?,
 								title = ?,
@@ -120,11 +127,13 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as EMIRecord is updated
+	// Use previous amount to calculate the change, and add it
 	query = `UPDATE users
 					SET totalLoaned = totalLoaned + ?,
 							totalPaid = totalPaid + ?,
 							currentlyLoaned = currentlyLoaned + ?,
-							currentlyPaid = currentlyPaid + ?,
+							currentlyPaid = currentlyPaid + ?
 					WHERE userID = ?`
 
 	_, err = database.DB.Exec(query, er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount,
@@ -138,7 +147,7 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "EMI Record Updated of ID:", recordID)
 }
 
-// DONE
+// Delete EMIRecord from Database
 func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -149,15 +158,17 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
 
+	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as EMIRecord is being deleted
 	query := `UPDATE users
 						SET totalLoaned = totalLoaned - ?,
 								totalPaid = totalPaid - ?,
 								currentlyLoaned = currentlyLoaned - ?,
-								currentlyPaid = currentlyPaid - ?,
+								currentlyPaid = currentlyPaid - ?
 						WHERE userID = ?`
 
 	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, er.OwnerID)
@@ -167,6 +178,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delete EMIRecord from database
 	query = `DELETE FROM emiRecords WHERE recordID = ?`
 
 	_, err = database.DB.Exec(query, recordID)
@@ -178,6 +190,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "EMI Record deleted with ID: %d\n", recordID)
 }
 
+// Increase TotalPaidAmount & CurrentlyPaidAmount by InstallmentAmount
 func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
@@ -188,6 +201,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = utils.FindRecordByRecordID(recordID, &er)
 	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
@@ -197,6 +211,8 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Increase PaidAmount by InstallAmount
+	// If it overflows then save the extra amount to use later
 	er.PaidAmount += er.InstallmentAmount
 	extra := 0
 	if er.PaidAmount > er.TotalAmount {
@@ -204,6 +220,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		er.PaidAmount = er.TotalAmount
 	}
 
+	// Update EMIRecord in the Database
 	query := `UPDATE emiRecords
 						SET paidAmount = ?
 						WHERE recordID = ?`
@@ -215,6 +232,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update User TotalPaid and CurrentlyPaid using previously save extra
 	query = `UPDATE users
 					SET totalPaid = totalPaid + ?,
 							currentlyPaid = currentlyPaid + ?
@@ -227,6 +245,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If paying installment completes EMI:
 	if er.TotalAmount == er.PaidAmount {
 		query = `UPDATE users
 						SET currentlyLoaned = currentlyLoaned - ?,
