@@ -38,3 +38,9 @@ func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hashedPassword), err
 }
+
+// Check if input password is correct
+func CheckPassword(hashedPassword, inputPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(inputPassword))
+	return err == nil
+}

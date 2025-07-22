@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -214,4 +216,43 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(records)
+}
+
+// Takes email and password, verifies with hashed password for login
+func PostLogin(w http.ResponseWriter, r *http.Request) {
+	// Parsing input from request body
+	type loginInput struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var inputU loginInput
+	err := json.NewDecoder(r.Body).Decode(&inputU)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Println("JSON Decoding failed")
+		return
+	}
+
+	// Finding hashedpassword from database by email
+	var hashedPassword string
+	query := `SELECT password FROM users WHERE email = ?`
+	err = database.DB.QueryRow(query, inputU.Email).Scan(&hashedPassword)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "Invalid email", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		log.Println("QueryRow Error:", err)
+		return
+	}
+
+	// If password is wrong, show error and return
+	if !utils.CheckPassword(hashedPassword, inputU.Password) {
+		http.Error(w, "Incorrect Password", http.StatusBadRequest)
+		return
+	}
+
+	// Create Token and set in cookies
+
+	fmt.Fprintln(w, "Login Successful")
 }
