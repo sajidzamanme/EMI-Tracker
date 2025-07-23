@@ -29,7 +29,12 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(er)
+	err = json.NewEncoder(w).Encode(er)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Printf("Error encoding json response: %v", err)
+		return
+	}
 }
 
 // Add EMIRecord to Database

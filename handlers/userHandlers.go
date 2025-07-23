@@ -44,6 +44,11 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Printf("Error encoding json response: %v", err)
+		return
+	}
 }
 
 // JSON Response with User (through userID)
@@ -62,6 +67,11 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(u)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Printf("Error encoding json response: %v", err)
+		return
+	}
 }
 
 // Add User to Database
@@ -216,6 +226,11 @@ func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(records)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Printf("Error encoding json response: %v", err)
+		return
+	}
 }
 
 // Takes email and password, verifies with hashed password for login
