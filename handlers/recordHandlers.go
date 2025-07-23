@@ -9,7 +9,7 @@ import (
 
 	"github.com/sajidzamanme/emi-tracker/database"
 	"github.com/sajidzamanme/emi-tracker/models"
-	"github.com/sajidzamanme/emi-tracker/utils"
+	"github.com/sajidzamanme/emi-tracker/repo"
 )
 
 // JSON Response with Record Details
@@ -21,7 +21,7 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var er models.EMIRecord
-	err = utils.FindRecordByRecordID(recordID, &er)
+	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
@@ -93,7 +93,7 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var er models.EMIRecord
-	err = utils.FindRecordByRecordID(recordID, &er)
+	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
@@ -161,7 +161,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var er models.EMIRecord
-	err = utils.FindRecordByRecordID(recordID, &er)
+	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)
@@ -204,7 +204,7 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var er models.EMIRecord
-	err = utils.FindRecordByRecordID(recordID, &er)
+	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Error scanning emiRecords row: %v", err)

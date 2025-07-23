@@ -10,13 +10,13 @@ func NewMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// User Handlers
-	mux.HandleFunc("GET /users", handlers.GetAllUsers)
-	mux.HandleFunc("GET /users/{userID}", handlers.GetUserByID)
-	mux.HandleFunc("POST /users", handlers.PostUser)
-	mux.HandleFunc("POST /users/{userID}", handlers.PostLogin)
-	mux.HandleFunc("PUT /users/{userID}", handlers.PutUser)
-	mux.HandleFunc("DELETE /users/{userID}", handlers.DeleteUser)
-	mux.HandleFunc("GET /users/{userID}/emirecords", handlers.GetAllRecordsByUserID)
+	mux.HandleFunc("GET /users", handlers.GetAllUsersHandler)
+	mux.HandleFunc("GET /users/{userID}", handlers.GetUserByIDHandler)
+	mux.HandleFunc("POST /users", handlers.InsertUserHandler)
+	mux.HandleFunc("POST /users/{userID}", handlers.UserLoginHandler)
+	mux.HandleFunc("PUT /users/{userID}", handlers.UpdateUserHandler)
+	mux.HandleFunc("DELETE /users/{userID}", handlers.DeleteUserHandler)
+	mux.HandleFunc("GET /users/{userID}/emirecords", handlers.GetAllRecordsByUserIDHandler)
 
 	// EMIRecord Handlers
 	mux.HandleFunc("GET /emirecords/{recordID}", handlers.GetRecordByRecordID)

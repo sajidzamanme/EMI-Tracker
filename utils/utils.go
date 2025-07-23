@@ -1,46 +1,36 @@
 package utils
 
 import (
-	"github.com/sajidzamanme/emi-tracker/database"
-	"github.com/sajidzamanme/emi-tracker/models"
+	"encoding/json"
+	"log"
+	"net/http"
+
 	"golang.org/x/crypto/bcrypt"
 )
-
-// Find user from databse and set to sent pointer
-func FindUserByUserID(userID int, u *models.User) error {
-	query := `SELECT * FROM users WHERE userID = ?`
-
-	rows := database.DB.QueryRow(query, userID)
-	err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Find record from databse and set to sent pointer
-func FindRecordByRecordID(recordID int, er *models.EMIRecord) error {
-	query := `SELECT * FROM emiRecords WHERE recordID = ?;`
-
-	rows := database.DB.QueryRow(query, recordID)
-	err := rows.Scan(&er.RecordID, &er.OwnerID, &er.Title, &er.TotalAmount,
-		&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // Bcrypt password hashing
 func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(hashedPassword), err
+	if err != nil {
+		log.Printf("Password hashing failed. Error: %v", err)
+		return "", err
+	}
+	return string(hashedPassword), nil
 }
 
 // Check if input password is correct
 func CheckPassword(hashedPassword, inputPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(inputPassword))
 	return err == nil
+}
+
+// Set response content to json and write any data that is sent
+func EncodeJson(w http.ResponseWriter, data any) error {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		log.Println("JSON encoding error")
+		return err
+	}
+	return nil
 }
