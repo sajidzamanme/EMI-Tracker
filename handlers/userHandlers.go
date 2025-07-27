@@ -153,8 +153,7 @@ func GetAllRecordsByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Get all EMIRecords of the requested user
 	records, err := repo.GetAllEMIRecordByUserID(userID)
 	if err != nil {
-		// More detailed error needed
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		fmt.Fprintf(w, "%v", err.Error())
 		return
 	}
 

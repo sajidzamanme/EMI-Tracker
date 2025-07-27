@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sajidzamanme/emi-tracker/database"
 	"github.com/sajidzamanme/emi-tracker/models"
 	"github.com/sajidzamanme/emi-tracker/repo"
+	"github.com/sajidzamanme/emi-tracker/utils"
 )
 
 // JSON Response with Record Details
@@ -28,24 +28,22 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(er)
+	err = utils.EncodeJson(w, er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("Error encoding json response: %v", err)
 		return
 	}
 }
 
 // Add EMIRecord to Database
-func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
+func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	// Save EMIRecord from request body to er
+	// Save EMIRecord from Request Body to er
 	var er models.EMIRecord
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
@@ -55,11 +53,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Add New EMIRecord to Database
-	query := `INSERT INTO
-						emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
-						VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
-
-	_, err = database.DB.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
+	err = repo.InsertEMIRecord(userID, &er)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		log.Printf("Database error: %v\n", err)
@@ -67,17 +61,9 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as new EMIRecord is added
-	query = `UPDATE users
-					SET totalLoaned = totalLoaned + ?,
-							totalPaid = totalPaid + ?,
-							currentlyLoaned = currentlyLoaned + ?,
-							currentlyPaid = currentlyPaid + ?
-					WHERE userID = ?`
-
-	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, userID)
+	err = repo.UpdateUserForEMIChange(userID, er.TotalAmount, er.PaidAmount)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
@@ -85,7 +71,7 @@ func PostRecordByUserID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update EMIRecord in Database
-func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -104,7 +90,7 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	prevTotalAmount := er.TotalAmount
 	prevPaidAmount := er.PaidAmount
 
-	// Save the new information in er
+	// Save the new information from Request Body to er
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
 		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
@@ -113,39 +99,17 @@ func PutRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Save the updated er in Database
-	query := `UPDATE emiRecords
-						SET ownerID = ?,
-								title = ?,
-								totalAmount = ?,
-								paidAmount = ?,
-								installmentAmount = ?,
-								startDate = ?,
-								endDate = ?,
-								deductDay = ?
-						WHERE recordID = ?`
-
-	_, err = database.DB.Exec(query, er.OwnerID, er.Title, er.TotalAmount, er.PaidAmount,
-		er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay, recordID)
+	err = repo.UpdateEMIRecord(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
-	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as EMIRecord is updated
-	// Use previous amount to calculate the change, and add it
-	query = `UPDATE users
-					SET totalLoaned = totalLoaned + ?,
-							totalPaid = totalPaid + ?,
-							currentlyLoaned = currentlyLoaned + ?,
-							currentlyPaid = currentlyPaid + ?
-					WHERE userID = ?`
-
-	_, err = database.DB.Exec(query, er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount,
-		er.TotalAmount-prevTotalAmount, er.PaidAmount-prevPaidAmount, er.OwnerID)
+	changeOfTotalAmount := er.TotalAmount - prevTotalAmount
+	changeofPaidAmount := er.PaidAmount - prevPaidAmount
+	err = repo.UpdateUserForEMIChange(er.OwnerID, changeOfTotalAmount, changeofPaidAmount)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
@@ -164,29 +128,18 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("Error scanning emiRecords row: %v", err)
 		return
 	}
 
 	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as EMIRecord is being deleted
-	query := `UPDATE users
-						SET totalLoaned = totalLoaned - ?,
-								totalPaid = totalPaid - ?,
-								currentlyLoaned = currentlyLoaned - ?,
-								currentlyPaid = currentlyPaid - ?
-						WHERE userID = ?`
-
-	_, err = database.DB.Exec(query, er.TotalAmount, er.PaidAmount, er.TotalAmount, er.PaidAmount, er.OwnerID)
+	err = repo.UpdateUserForEMIChange(er.OwnerID, (-1 * er.TotalAmount), (-1 * er.PaidAmount))
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
 	// Delete EMIRecord from database
-	query = `DELETE FROM emiRecords WHERE recordID = ?`
-
-	_, err = database.DB.Exec(query, recordID)
+	err = repo.DeleteEMIRecord(recordID)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
 		return
@@ -196,7 +149,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Increase TotalPaidAmount & CurrentlyPaidAmount by InstallmentAmount
-func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
+func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -226,42 +179,25 @@ func GetPayInstallment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update EMIRecord in the Database
-	query := `UPDATE emiRecords
-						SET paidAmount = ?
-						WHERE recordID = ?`
-
-	_, err = database.DB.Exec(query, er.PaidAmount, recordID)
+	err = repo.UpdateEMIRecord(recordID, &er)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
-	// Update User TotalPaid and CurrentlyPaid using previously save extra
-	query = `UPDATE users
-					SET totalPaid = totalPaid + ?,
-							currentlyPaid = currentlyPaid + ?
-					WHERE userID = ?`
-
-	_, err = database.DB.Exec(query, er.InstallmentAmount-extra, er.InstallmentAmount-extra, er.OwnerID)
+	// Update User TotalPaid and CurrentlyPaid using previously saved extra
+	changeAmount := er.InstallmentAmount - extra
+	err = repo.UpdateUserForInstallment(er.OwnerID, -changeAmount, changeAmount)
 	if err != nil {
 		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
 		return
 	}
 
 	// If paying installment completes EMI:
 	if er.TotalAmount == er.PaidAmount {
-		query = `UPDATE users
-						SET currentlyLoaned = currentlyLoaned - ?,
-								currentlyPaid = currentlyPaid - ?,
-								completedEMI = completedEMI + 1
-						WHERE userID = ?`
-
-		_, err = database.DB.Exec(query, er.TotalAmount, er.TotalAmount, er.OwnerID)
+		err = repo.CompleteEMI(er.OwnerID)
 		if err != nil {
 			http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-			log.Printf("Database error: %v\n", err)
 			return
 		}
 	}
