@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -10,8 +12,9 @@ import (
 var DB *sql.DB
 
 func InitDB() {
-	// move to .env
-	dsn := "root:sajid123@tcp(127.0.0.1:3306)/emiTracker?parseTime=true"
+	ROOT := os.Getenv("ROOT")
+	PASSWORD := os.Getenv("PASSWORD")
+	dsn := fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/emiTracker?parseTime=true", ROOT, PASSWORD)
 
 	// Configure database connection
 	var err error
