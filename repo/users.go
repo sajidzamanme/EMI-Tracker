@@ -9,17 +9,19 @@ import (
 	"github.com/sajidzamanme/emi-tracker/models"
 )
 
-// Find user from databse and set to sent pointer
+var ErrorUserNotFound = errors.New("User Doesn't Exist")
+var ErrorServerError = errors.New("Internal Server Error")
+
 func FindUserByUserID(userID int, u *models.User) error {
 	query := `SELECT * FROM users WHERE userID = ?`
 
 	rows := database.DB.QueryRow(query, userID)
-	err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
+	err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.ActiveEMI, &u.CompletedEMI)
 	if errors.Is(err, sql.ErrNoRows) {
-		return err
+		return ErrorUserNotFound
 	} else if err != nil {
 		log.Printf("Error scanning users row: %v", err)
-		return err
+		return ErrorServerError
 	}
 	return nil
 }
@@ -29,7 +31,7 @@ func GetAllUsers() ([]models.User, error) {
 	rows, err := database.DB.Query("SELECT * FROM users")
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
-		return nil, err
+		return nil, ErrorServerError
 	}
 	defer rows.Close()
 
@@ -37,10 +39,10 @@ func GetAllUsers() ([]models.User, error) {
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.CurrentlyLoaned, &u.CurrentlyPaid, &u.CompletedEMI)
+		err = rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Password, &u.TotalLoaned, &u.TotalPaid, &u.ActiveEMI, &u.CompletedEMI)
 		if err != nil {
 			log.Printf("Error scanning user: %v", err)
-			return nil, err
+			return nil, ErrorServerError
 		}
 		users = append(users, u)
 	}
@@ -54,20 +56,20 @@ func GetAllUsers() ([]models.User, error) {
 
 func InsertUser(u models.User) (int, error) {
 	query := `INSERT INTO
-						users(name, email, password, totalLoaned, totalPaid, currentlyLoaned, currentlyPaid, completedEMI)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+						users(name, email, password, totalLoaned, totalPaid, activeEMI, completedEMI)
+						VALUES (?, ?, ?, ?, ?, ?, ?)`
 
-	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.CurrentlyLoaned, u.CurrentlyPaid, u.CompletedEMI)
+	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.ActiveEMI, u.CompletedEMI)
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
-		return -1, err
+		return -1, ErrorServerError
 	}
 
 	// Get id of new user
 	id, err := res.LastInsertId()
 	if err != nil {
 		log.Printf("Server Error: %v\n", err)
-		return -1, err
+		return -1, ErrorServerError
 	}
 
 	return int(id), nil
@@ -80,16 +82,15 @@ func UpdateUser(u models.User) error {
 								password = ?,
 								totalLoaned = ?,
 								totalPaid = ?,
-								currentlyLoaned = ?,
-								currentlyPaid = ?,
+								activeEMI = ?,
 								completedEMI = ?
 						WHERE userID = ?;`
 
 	_, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned,
-		u.TotalPaid, u.CurrentlyLoaned, u.CurrentlyPaid, u.CompletedEMI, u.UserID)
+		u.TotalPaid, u.ActiveEMI, u.CompletedEMI, u.UserID)
 	if err != nil {
 		log.Printf("Database error: %v", err)
-		return err
+		return ErrorServerError
 	}
 	return nil
 }
@@ -99,17 +100,18 @@ func DeleteUser(userID int) error {
 
 	if _, err := database.DB.Exec(query, userID); err != nil {
 		log.Printf("Database error: %v", err)
-		return err
+		return ErrorServerError
 	}
 	return nil
 }
 
 func GetAllEMIRecordByUserID(userID int) ([]models.EMIRecord, error) {
+	// Select all emiRecords of a user from database
 	query := `SELECT * FROM emiRecords WHERE ownerID = ?;`
 	rows, err := database.DB.Query(query, userID)
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
-		return nil, err
+		return nil, ErrorServerError
 	}
 	defer rows.Close()
 
@@ -121,7 +123,7 @@ func GetAllEMIRecordByUserID(userID int) ([]models.EMIRecord, error) {
 			&er.PaidAmount, &er.InstallmentAmount, &er.StartDate, &er.EndDate, &er.DeductDay)
 		if err != nil {
 			log.Printf("Error scanning record: %v", err)
-			return nil, err
+			return nil, ErrorServerError
 		}
 		records = append(records, er)
 	}
@@ -138,10 +140,10 @@ func GetHashedPasswordByEmail(email string) (string, error) {
 	query := `SELECT password FROM users WHERE email = ?`
 	err := database.DB.QueryRow(query, email).Scan(&hashedPassword)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", err
+		return "", ErrorUserNotFound
 	} else if err != nil {
 		log.Println("QueryRow Error:", err)
-		return "", err
+		return "", ErrorServerError
 	}
 	return hashedPassword, nil
 }

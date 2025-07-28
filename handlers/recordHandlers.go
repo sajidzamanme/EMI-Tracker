@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,15 +23,17 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 
 	var er models.EMIRecord
 	err = repo.FindRecordByRecordID(recordID, &er)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("Error scanning emiRecords row: %v", err)
+	if errors.Is(err, repo.ErrorRecordNotFound) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = utils.EncodeJson(w, er)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -47,7 +50,8 @@ func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
-		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Println("JSON Decoding failed")
 		return
 	}
 	defer r.Body.Close()
@@ -55,15 +59,14 @@ func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	// Add New EMIRecord to Database
 	err = repo.InsertEMIRecord(userID, &er)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
-		log.Printf("Database error: %v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as new EMIRecord is added
+	// Update User TotalLoaned, TotalPaid, activeEMI as new EMIRecord is added
 	err = repo.UpdateUserForEMIChange(userID, er.TotalAmount, er.PaidAmount)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -81,8 +84,7 @@ func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("Error scanning emiRecords row: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -93,7 +95,8 @@ func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	// Save the new information from Request Body to er
 	err = json.NewDecoder(r.Body).Decode(&er)
 	if err != nil {
-		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Println("JSON Decoding failed")
 		return
 	}
 	defer r.Body.Close()
@@ -101,15 +104,16 @@ func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	// Save the updated er in Database
 	err = repo.UpdateEMIRecord(recordID, &er)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Update user with changed EMIRecord
 	changeOfTotalAmount := er.TotalAmount - prevTotalAmount
 	changeofPaidAmount := er.PaidAmount - prevPaidAmount
 	err = repo.UpdateUserForEMIChange(er.OwnerID, changeOfTotalAmount, changeofPaidAmount)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -127,21 +131,21 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Update User TotalLoaned, TotalPaid, CurrentlyLoaned & CurrentlyPaid as EMIRecord is being deleted
+	// Update User TotalLoaned, TotalPaid, activeEMI as EMIRecord is being deleted
 	err = repo.UpdateUserForEMIChange(er.OwnerID, (-1 * er.TotalAmount), (-1 * er.PaidAmount))
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Delete EMIRecord from database
-	err = repo.DeleteEMIRecord(recordID)
+	err = repo.DeleteEMIRecord(er.OwnerID, recordID)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -159,11 +163,11 @@ func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	var er models.EMIRecord
 	err = repo.FindRecordByRecordID(recordID, &er)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		log.Printf("Error scanning emiRecords row: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Return if EMI is already completed
 	if er.PaidAmount == er.TotalAmount {
 		http.Error(w, "EMI Already Paid", http.StatusNotAcceptable)
 		return
@@ -181,7 +185,7 @@ func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	// Update EMIRecord in the Database
 	err = repo.UpdateEMIRecord(recordID, &er)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -189,7 +193,7 @@ func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	changeAmount := er.InstallmentAmount - extra
 	err = repo.UpdateUserForInstallment(er.OwnerID, -changeAmount, changeAmount)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -197,7 +201,7 @@ func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	if er.TotalAmount == er.PaidAmount {
 		err = repo.CompleteEMI(er.OwnerID)
 		if err != nil {
-			http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}

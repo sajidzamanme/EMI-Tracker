@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,14 +17,13 @@ import (
 func GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 	users, err := repo.GetAllUsers()
 	if err != nil {
-		// need more informative error printing
-		fmt.Fprintln(w, err)
+		fmt.Fprintln(w, err.Error())
 		return
 	}
 
 	err = utils.EncodeJson(w, users)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -40,17 +38,17 @@ func GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
 
 	var u models.User
 	err = repo.FindUserByUserID(userID, &u)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "User not registered", http.StatusNotFound)
+	if errors.Is(err, repo.ErrorUserNotFound) {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = utils.EncodeJson(w, u)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -61,7 +59,8 @@ func InsertUserHandler(w http.ResponseWriter, r *http.Request) {
 	var u models.User
 	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
-		http.Error(w, "Invalid User Details", http.StatusBadRequest)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Println("JSON Decoding failed")
 		return
 	}
 	defer r.Body.Close()
@@ -69,21 +68,20 @@ func InsertUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Hash the password
 	u.Password, err = utils.HashPassword(u.Password)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Set default values
 	u.TotalLoaned = 0
 	u.TotalPaid = 0
-	u.CurrentlyLoaned = 0
-	u.CurrentlyPaid = 0
+	u.ActiveEMI = 0
 	u.CompletedEMI = 0
 
 	// Insert user to database
 	id, err := repo.InsertUser(u)
 	if err != nil {
-		http.Error(w, "Internal Server Error:", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -100,17 +98,18 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	var u models.User
 	err = repo.FindUserByUserID(userID, &u)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "User not registered", http.StatusNotFound)
+	if errors.Is(err, repo.ErrorUserNotFound) {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Overwrite the new info
 	if err = json.NewDecoder(r.Body).Decode(&u); err != nil {
-		http.Error(w, "Invalid Record Entry", http.StatusBadRequest)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		log.Println("JSON Decoding failed")
 		return
 	}
 	defer r.Body.Close()
@@ -118,7 +117,7 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Update entry in database
 	err = repo.UpdateUser(u)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -135,7 +134,7 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = repo.DeleteUser(userID)
 	if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -153,13 +152,13 @@ func GetAllRecordsByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Get all EMIRecords of the requested user
 	records, err := repo.GetAllEMIRecordByUserID(userID)
 	if err != nil {
-		fmt.Fprintf(w, "%v", err.Error())
+		fmt.Fprintln(w, err.Error())
 		return
 	}
 
 	err = utils.EncodeJson(w, records)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -181,11 +180,11 @@ func UserLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Finding hashedpassword from database by email
 	hashedPassword, err := repo.GetHashedPasswordByEmail(inputU.Email)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "Invalid email", http.StatusNotFound)
+	if errors.Is(err, repo.ErrorUserNotFound) {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, "Internal Database Error", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
