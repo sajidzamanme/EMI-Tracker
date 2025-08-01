@@ -24,3 +24,10 @@ CREATE TABLE emiRecords (
   deductDay INT NOT NULL,
   FOREIGN KEY (ownerID) REFERENCES users(userID) ON DELETE CASCADE
 );
+
+-- Drop Tables
+-- @block
+DROP TABLE users;
+
+-- @block
+DROP TABLE emiRecords;

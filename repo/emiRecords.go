@@ -28,22 +28,36 @@ func FindRecordByRecordID(recordID int, er *models.EMIRecord) error {
 }
 
 func InsertEMIRecord(userID int, er *models.EMIRecord) error {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Printf("Transaction Begin Error: %v", err)
+		return ErrorServerError
+	}
+	
 	// Insert new EMI Record in emiRecords
 	query := `INSERT INTO
 						emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
 						VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
 
-	_, err := database.DB.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
+	_, err = tx.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError
 	}
 
 	// update Number of Active EMI in user
 	query = `UPDATE users SET activeEMI = activeEMI + 1 WHERE userID = ?`
-	_, err = database.DB.Exec(query, userID)
+	_, err = tx.Exec(query, userID)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
+		return ErrorServerError
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Commit Error: %v", err)
 		return ErrorServerError
 	}
 
@@ -99,19 +113,27 @@ func UpdateEMIRecord(recordID int, er *models.EMIRecord) error {
 }
 
 func DeleteEMIRecord(userID, recordID int, reduceComplete bool) error {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Printf("Transaction Begin Error: %v", err)
+		return ErrorServerError
+	}
+	
 	if reduceComplete {
 		// update Number of Completed EMI in user
 		query := `UPDATE users SET completedEMI = completedEMI - 1 WHERE userID = ?`
-		_, err := database.DB.Exec(query, userID)
+		_, err := tx.Exec(query, userID)
 		if err != nil {
+			tx.Rollback()
 			log.Printf("Database error: %v\n", err)
 			return ErrorServerError
 		}
 	} else {
 		// update Number of Active EMI in user
 		query := `UPDATE users SET activeEMI = activeEMI - 1 WHERE userID = ?`
-		_, err := database.DB.Exec(query, userID)
+		_, err := tx.Exec(query, userID)
 		if err != nil {
+			tx.Rollback()
 			log.Printf("Database error: %v\n", err)
 			return ErrorServerError
 		}
@@ -119,9 +141,16 @@ func DeleteEMIRecord(userID, recordID int, reduceComplete bool) error {
 
 	// delete emiRecord from database
 	query := `DELETE FROM emiRecords WHERE recordID = ?`
-	_, err := database.DB.Exec(query, recordID)
+	_, err = tx.Exec(query, recordID)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
+		return ErrorServerError
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Commit Error: %v", err)
 		return ErrorServerError
 	}
 

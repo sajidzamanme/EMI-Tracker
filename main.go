@@ -24,6 +24,11 @@ func main() {
 	database.InitDB()
 
 	PORT := os.Getenv("PORT")
+	if PORT == "" {
+		log.Fatalln("PORT environmental variable doesn't exist")
+	}
+
+	log.Println("Server is running on PORT", PORT)
 	err := http.ListenAndServe(PORT, router.NewMux())
 	if err != nil {
 		log.Fatalln("Server Crashed")
