@@ -14,7 +14,7 @@ import (
 )
 
 // JSON Response with Record Details
-func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+func GetRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -39,7 +39,7 @@ func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Add EMIRecord to Database
-func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
+func InsertRecordByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -74,7 +74,7 @@ func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update EMIRecord in Database
-func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+func UpdateRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -121,7 +121,7 @@ func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete EMIRecord from Database
-func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
+func DeleteRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -143,7 +143,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete EMIRecord from database
-	err = repo.DeleteEMIRecord(er.OwnerID, recordID)
+	err = repo.DeleteEMIRecord(er.OwnerID, recordID, (er.TotalAmount == er.PaidAmount))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -153,7 +153,7 @@ func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Increase TotalPaidAmount & CurrentlyPaidAmount by InstallmentAmount
-func PayInstallment(w http.ResponseWriter, r *http.Request) {
+func PayInstallmentHandler(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -189,9 +189,9 @@ func PayInstallment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update User TotalPaid and CurrentlyPaid using previously saved extra
+	// Update User TotalPaid using previously saved extra
 	changeAmount := er.InstallmentAmount - extra
-	err = repo.UpdateUserForInstallment(er.OwnerID, -changeAmount, changeAmount)
+	err = repo.UpdateUserForInstallment(er.OwnerID, changeAmount)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

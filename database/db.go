@@ -14,6 +14,9 @@ var DB *sql.DB
 func InitDB() {
 	ROOT := os.Getenv("ROOT")
 	PASSWORD := os.Getenv("PASSWORD")
+	if ROOT == "" || PASSWORD == "" {
+		log.Fatalln("Environmental variables are not set correctly")
+	}
 	dsn := fmt.Sprintf("%v:%v@tcp(127.0.0.1:3306)/emiTracker?parseTime=true", ROOT, PASSWORD)
 
 	// Configure database connection

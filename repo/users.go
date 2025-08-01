@@ -55,12 +55,19 @@ func GetAllUsers() ([]models.User, error) {
 }
 
 func InsertUser(u models.User) (int, error) {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Printf("Transaction Begin Error: %v", err)
+		return -1, ErrorServerError
+	}
+
 	query := `INSERT INTO
 						users(name, email, password, totalLoaned, totalPaid, activeEMI, completedEMI)
 						VALUES (?, ?, ?, ?, ?, ?, ?)`
 
-	res, err := database.DB.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.ActiveEMI, u.CompletedEMI)
+	res, err := tx.Exec(query, u.Name, u.Email, u.Password, u.TotalLoaned, u.TotalPaid, u.ActiveEMI, u.CompletedEMI)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
 		return -1, ErrorServerError
 	}
@@ -68,7 +75,14 @@ func InsertUser(u models.User) (int, error) {
 	// Get id of new user
 	id, err := res.LastInsertId()
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Server Error: %v\n", err)
+		return -1, ErrorServerError
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Commit Error: %v", err)
 		return -1, ErrorServerError
 	}
 

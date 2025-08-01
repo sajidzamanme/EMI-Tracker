@@ -28,35 +28,49 @@ func FindRecordByRecordID(recordID int, er *models.EMIRecord) error {
 }
 
 func InsertEMIRecord(userID int, er *models.EMIRecord) error {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Printf("Transaction Begin Error: %v", err)
+		return ErrorServerError
+	}
+	
 	// Insert new EMI Record in emiRecords
 	query := `INSERT INTO
 						emiRecords (ownerID, title, totalAmount, paidAmount, installmentAmount, startDate, endDate, deductDay)
 						VALUES(?, ?, ?, ?, ?, ?, ?, ?);`
 
-	_, err := database.DB.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
+	_, err = tx.Exec(query, userID, er.Title, er.TotalAmount, er.PaidAmount, er.InstallmentAmount, er.StartDate, er.EndDate, er.DeductDay)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError
 	}
 
 	// update Number of Active EMI in user
 	query = `UPDATE users SET activeEMI = activeEMI + 1 WHERE userID = ?`
-	_, err = database.DB.Exec(query, userID)
+	_, err = tx.Exec(query, userID)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
+		return ErrorServerError
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Commit Error: %v", err)
 		return ErrorServerError
 	}
 
 	return nil
 }
 
-func UpdateUserForEMIChange(userID int, totalAmount, paidAmount int) error {
+func UpdateUserForEMIChange(userID int, totalAmountChange, paidAmountChange int) error {
 	query := `UPDATE users
 						SET totalLoaned = totalLoaned + ?,
 								totalPaid = totalPaid + ?
 						WHERE userID = ?`
 
-	_, err := database.DB.Exec(query, totalAmount, paidAmount, userID)
+	_, err := database.DB.Exec(query, totalAmountChange, paidAmountChange, userID)
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError
@@ -64,12 +78,12 @@ func UpdateUserForEMIChange(userID int, totalAmount, paidAmount int) error {
 	return nil
 }
 
-func UpdateUserForInstallment(userID int, totalAmount, paidAmount int) error {
+func UpdateUserForInstallment(userID int, paidAmountChange int) error {
 	query := `UPDATE users
 						SET totalPaid = totalPaid + ?
 						WHERE userID = ?`
 
-	_, err := database.DB.Exec(query, paidAmount, userID)
+	_, err := database.DB.Exec(query, paidAmountChange, userID)
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError
@@ -98,33 +112,58 @@ func UpdateEMIRecord(recordID int, er *models.EMIRecord) error {
 	return nil
 }
 
-func DeleteEMIRecord(userID, recordID int) error {
-	query := `DELETE FROM emiRecords WHERE recordID = ?`
-
-	_, err := database.DB.Exec(query, recordID)
+func DeleteEMIRecord(userID, recordID int, reduceComplete bool) error {
+	tx, err := database.DB.Begin()
 	if err != nil {
+		log.Printf("Transaction Begin Error: %v", err)
+		return ErrorServerError
+	}
+	
+	if reduceComplete {
+		// update Number of Completed EMI in user
+		query := `UPDATE users SET completedEMI = completedEMI - 1 WHERE userID = ?`
+		_, err := tx.Exec(query, userID)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Database error: %v\n", err)
+			return ErrorServerError
+		}
+	} else {
+		// update Number of Active EMI in user
+		query := `UPDATE users SET activeEMI = activeEMI - 1 WHERE userID = ?`
+		_, err := tx.Exec(query, userID)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Database error: %v\n", err)
+			return ErrorServerError
+		}
+	}
+
+	// delete emiRecord from database
+	query := `DELETE FROM emiRecords WHERE recordID = ?`
+	_, err = tx.Exec(query, recordID)
+	if err != nil {
+		tx.Rollback()
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError
 	}
 
-	// update Number of Active EMI in user
-	query = `UPDATE users SET activeEMI = activeEMI - 1 WHERE userID = ?`
-	_, err = database.DB.Exec(query, userID)
+	err = tx.Commit()
 	if err != nil {
-		log.Printf("Database error: %v\n", err)
+		log.Printf("Commit Error: %v", err)
 		return ErrorServerError
 	}
 
 	return nil
 }
 
-func CompleteEMI(ownerID int) error {
+func CompleteEMI(userID int) error {
 	query := `UPDATE users
 						SET completedEMI = completedEMI + 1,
 								activeEMI = activeEMI - 1
 						WHERE userID = ?`
 
-	_, err := database.DB.Exec(query, ownerID)
+	_, err := database.DB.Exec(query, userID)
 	if err != nil {
 		log.Printf("Database error: %v\n", err)
 		return ErrorServerError

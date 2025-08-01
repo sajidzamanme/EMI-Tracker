@@ -19,11 +19,11 @@ func NewMux() *http.ServeMux {
 	mux.HandleFunc("GET /users/{userID}/emirecords", handlers.GetAllRecordsByUserIDHandler)
 
 	// EMIRecord Handlers
-	mux.HandleFunc("GET /emirecords/{recordID}", handlers.GetRecordByRecordID)
-	mux.HandleFunc("POST /emirecords/{userID}", handlers.InsertRecordByUserID)
-	mux.HandleFunc("PUT /emirecords/{recordID}", handlers.UpdateRecordByRecordID)
-	mux.HandleFunc("DELETE /emirecords/{recordID}", handlers.DeleteRecordByRecordID)
-	mux.HandleFunc("GET /emirecords/{recordID}/payinstallment", handlers.PayInstallment)
+	mux.HandleFunc("GET /emirecords/{recordID}", handlers.GetRecordByRecordIDHandler)
+	mux.HandleFunc("POST /emirecords/{userID}", handlers.InsertRecordByUserIDHandler)
+	mux.HandleFunc("PUT /emirecords/{recordID}", handlers.UpdateRecordByRecordIDHandler)
+	mux.HandleFunc("DELETE /emirecords/{recordID}", handlers.DeleteRecordByRecordIDHandler)
+	mux.HandleFunc("GET /emirecords/{recordID}/payinstallment", handlers.PayInstallmentHandler)
 
 	return mux
 }
