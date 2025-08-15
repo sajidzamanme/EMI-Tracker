@@ -14,7 +14,7 @@ import (
 )
 
 // JSON Response with all Users
-func GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
+func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := repo.GetAllUsers()
 	if err != nil {
 		fmt.Fprintln(w, err.Error())
@@ -29,7 +29,7 @@ func GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // JSON Response with User (through userID)
-func GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
+func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -54,7 +54,7 @@ func GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Add User to Database
-func InsertUserHandler(w http.ResponseWriter, r *http.Request) {
+func InsertUser(w http.ResponseWriter, r *http.Request) {
 	// Save User from request body to u
 	var u models.User
 	err := json.NewDecoder(r.Body).Decode(&u)
@@ -89,7 +89,7 @@ func InsertUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update User in Database
-func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -125,7 +125,7 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete User from Database
-func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -142,7 +142,7 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // JSON Response with all EMIRecords added to an individual User
-func GetAllRecordsByUserIDHandler(w http.ResponseWriter, r *http.Request) {
+func GetAllRecordsByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -164,7 +164,7 @@ func GetAllRecordsByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Takes email and password, verifies with hashed password for login
-func UserLoginHandler(w http.ResponseWriter, r *http.Request) {
+func UserLogin(w http.ResponseWriter, r *http.Request) {
 	// Parsing input from request body
 	type loginInput struct {
 		Email    string `json:"email"`
