@@ -11,49 +11,49 @@ func InitUserRoutes(mux *http.ServeMux, manager *middlewares.Manager) {
 	mux.Handle(
 		"GET /users",
 		manager.With(
-			http.HandlerFunc(handlers.GetAllUsersHandler),
+			http.HandlerFunc(handlers.GetAllUsers),
 		),
 	)
 
 	mux.Handle(
 		"GET /users/{userID}",
 		manager.With(
-			http.HandlerFunc(handlers.GetUserByIDHandler),
+			http.HandlerFunc(handlers.GetUserByID),
 		),
 	)
 
 	mux.Handle(
 		"POST /users/signup",
 		manager.With(
-			http.HandlerFunc(handlers.InsertUserHandler),
+			http.HandlerFunc(handlers.InsertUser),
 		),
 	)
 
 	mux.Handle(
 		"POST /users/login",
 		manager.With(
-			http.HandlerFunc(handlers.UserLoginHandler),
+			http.HandlerFunc(handlers.UserLogin),
 		),
 	)
 
 	mux.Handle(
 		"PUT /users/{userID}",
 		manager.With(
-			http.HandlerFunc(handlers.UpdateUserHandler),
+			http.HandlerFunc(handlers.UpdateUser),
 		),
 	)
 
 	mux.Handle(
 		"DELETE /users/{userID}",
 		manager.With(
-			http.HandlerFunc(handlers.DeleteUserHandler),
+			http.HandlerFunc(handlers.DeleteUser),
 		),
 	)
 
 	mux.Handle(
 		"GET /users/{userID}/emirecords",
 		manager.With(
-			http.HandlerFunc(handlers.GetAllRecordsByUserIDHandler),
+			http.HandlerFunc(handlers.GetAllRecordsByUserID),
 		),
 	)
 }

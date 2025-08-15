@@ -14,7 +14,7 @@ import (
 )
 
 // JSON Response with Record Details
-func GetRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
+func GetRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -39,7 +39,7 @@ func GetRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Add EMIRecord to Database
-func InsertRecordByUserIDHandler(w http.ResponseWriter, r *http.Request) {
+func InsertRecordByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(r.PathValue("userID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -74,7 +74,7 @@ func InsertRecordByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update EMIRecord in Database
-func UpdateRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
+func UpdateRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -121,7 +121,7 @@ func UpdateRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete EMIRecord from Database
-func DeleteRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
+func DeleteRecordByRecordID(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -153,7 +153,7 @@ func DeleteRecordByRecordIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Increase TotalPaidAmount & CurrentlyPaidAmount by InstallmentAmount
-func PayInstallmentHandler(w http.ResponseWriter, r *http.Request) {
+func PayInstallment(w http.ResponseWriter, r *http.Request) {
 	recordID, err := strconv.Atoi(r.PathValue("recordID"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
