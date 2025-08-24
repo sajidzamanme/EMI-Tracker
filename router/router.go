@@ -6,14 +6,19 @@ import (
 	"github.com/sajidzamanme/emi-tracker/middlewares"
 )
 
-func NewMux() *http.ServeMux {
+func NewMux() http.Handler {
 	mux := http.NewServeMux()
 
 	manager := middlewares.NewManager()
-	manager.Use(middlewares.Logger)
+	manager.Use(
+		middlewares.Logger,
+		middlewares.HandleCORS,
+		middlewares.HandlePreflight,
+	)
+	wrappedMux := manager.WrapMux(mux)
 
 	InitUserRoutes(mux, manager)
 	InitEmiRecordRoutes(mux, manager)
 
-	return mux
+	return wrappedMux
 }
